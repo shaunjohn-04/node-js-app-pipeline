@@ -25,6 +25,10 @@ pipeline {
       steps {
         withSonarQubeEnv('sonarqube') {
           sh '''
+            apk add --no-cache openjdk17-jre-headless
+            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
+            export PATH=$JAVA_HOME/bin:$PATH
+
             cd node-app
             npx sonar-scanner \
               -Dsonar.projectKey=node-express-app \
