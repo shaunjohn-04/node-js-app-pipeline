@@ -2,13 +2,20 @@ pipeline {
   agent {
     docker {
       image 'node:20-alpine'
-      args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+      args '-u 105:109 -v /var/run/docker.sock:/var/run/docker.sock'
     }
+  }
+  options {
+    skipDefaultCheckout(true)
   }
   stages {
     stage('Checkout') {
       steps {
-        sh 'echo "Starting build process..."'
+        cleanWs()
+        sh '''
+          echo "Starting build process..."
+          rm -rf node-app/node_modules || true
+        '''
       }
     }
     stage('Build and Test') {
