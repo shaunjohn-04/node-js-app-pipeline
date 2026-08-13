@@ -9,7 +9,7 @@ pipeline {
     skipDefaultCheckout(true)
   }
   environment {
-    DOCKER_REPO = 'matrixtgx/ultimate-cicd'
+    DOCKER_REPO = 'shaunjohnmathew/ultimate-cicd'
   }
   stages {
     stage('Prepare Tooling') {
@@ -69,12 +69,12 @@ pipeline {
     stage('Update Deployment File') {
       environment {
         GIT_REPO_NAME = "node-js-app-pipeline"
-        GIT_USER_NAME = "matrixtgx"
+        GIT_USER_NAME = "shaunjohn-04"
       }
       steps {
         withCredentials([
             string(
-                credentialsId: 'githubb',
+                credentialsId: 'github',
                 variable: 'GITHUB_TOKEN'
             )
         ]) {
@@ -83,7 +83,7 @@ pipeline {
                 git clone https://x-access-token:${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git repo-temp
                 cd repo-temp
                 
-                git config user.email "matrixser122@gmail.com"
+                git config user.email "shaunjohnmathew04@gmail.com"
                 git config user.name "${GIT_USER_NAME}"
 
                 sed -i "s|image: .*|image: ${DOCKER_REPO}:${BUILD_NUMBER}|g" node-app-manifests/deployment.yml
