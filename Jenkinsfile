@@ -2,31 +2,33 @@ pipeline {
   agent {
     docker {
       image 'node:20-alpine'
-      args '-u 105:109 -v /var/run/docker.sock:/var/run/docker.sock'
+      args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
     }
   }
   options {
     skipDefaultCheckout(true)
   }
+  environment {
+    DOCKER_REPO = 'matrixtgx/ultimate-cicd'
+  }
   stages {
+    stage('Prepare Tooling') {
+      steps {
+        sh 'apk add --no-cache docker-cli git openjdk17-jre'
+      }
+    }
     stage('Checkout') {
       steps {
-        cleanWs()
-        sh '''
-          echo "Starting build process..."
-          rm -rf node-app/node_modules || true
-        '''
+        sh 'rm -rf node-app/node_modules repo-temp || true'
+        checkout scm
+        sh 'echo "Starting build process..."'
       }
     }
     stage('Build and Test') {
       steps {
         sh '''
           cd node-app
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install --no-audit --no-fund
-          fi
+          npm ci
           npm test
         '''
       }
@@ -36,10 +38,6 @@ pipeline {
       steps {
         withSonarQubeEnv('sonarqube') {
           sh '''
-            apk add --no-cache openjdk17-jre-headless
-            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
-            export PATH=$JAVA_HOME/bin:$PATH
-
             cd node-app
             npx sonar-scanner \
               -Dsonar.projectKey=node-express-app \
@@ -54,7 +52,7 @@ pipeline {
 
     stage('Build and Push Docker Image') {
       environment {
-        DOCKER_IMAGE = "gopikakt2005/ultimate-cicd:${BUILD_NUMBER}"
+        DOCKER_IMAGE = "${DOCKER_REPO}:${BUILD_NUMBER}"
       }
       steps {
         script {
@@ -70,33 +68,37 @@ pipeline {
 
     stage('Update Deployment File') {
       environment {
-        GIT_REPO_NAME = "java-maven-sonar-argocd"
-        GIT_USER_NAME = "gopikakt2005"
+        GIT_REPO_NAME = "node-js-app-pipeline"
+        GIT_USER_NAME = "matrixtgx"
       }
       steps {
         withCredentials([
-            usernamePassword(
-                credentialsId: 'git-hub',
-                usernameVariable: 'GITHUB_USERNAME',
-                passwordVariable: 'GITHUB_TOKEN'
+            string(
+                credentialsId: 'githubb',
+                variable: 'GITHUB_TOKEN'
             )
         ]) {
             sh '''
                 rm -rf repo-temp
-                git clone https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git repo-temp
+                git clone https://x-access-token:${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git repo-temp
                 cd repo-temp
                 
-                git config user.email "gopikakt2005@gmail.com"
+                git config user.email "matrixser122@gmail.com"
                 git config user.name "${GIT_USER_NAME}"
 
-                sed -i "s|image: .*|image: gopikakt2005/ultimate-cicd:${BUILD_NUMBER}|g" node-app-manifests/deployment.yml
+                sed -i "s|image: .*|image: ${DOCKER_REPO}:${BUILD_NUMBER}|g" node-app-manifests/deployment.yml
 
                 git add node-app-manifests/deployment.yml
-                git commit -m "Update static site image tag to ${BUILD_NUMBER} [skip ci]" || echo "No changes to commit"
-                git push origin main
+                git commit -m "Update node app image tag to ${BUILD_NUMBER} [skip ci]" || echo "No changes to commit"
+                git push https://x-access-token:${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git main
             '''
         }
       }
+    }
+  }
+  post {
+    always {
+      sh 'rm -rf node-app/node_modules repo-temp || true'
     }
   }
 }
